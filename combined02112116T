@@ -1,0 +1,185 @@
+;; ========================================
+;; LLM-Augmented Collective Decision Model (CLEAN VERSION)
+;; ========================================
+globals [
+  truth r correctCount wrongCount highConsensusWrongCount roundCount totalBeliefVariance
+]
+
+turtles-own [
+  preSocialBelief signalQuality trust conform confidence belief vote hasAccess isLeader
+]
+
+to setup
+  clear-all
+  random-seed new-seed
+  
+  set correctCount 0
+  set wrongCount 0
+  set highConsensusWrongCount 0
+  set roundCount 0
+  set totalBeliefVariance 0
+  
+  create-turtles N [
+    set shape "person"
+    set color blue
+    setxy random-xcor random-ycor
+    
+    set trust random-normal meanTrust sdTrust
+    if trust < 0 [set trust 0]
+    if trust > 1 [set trust 1]
+    
+    set conform random-normal meanConform sdConform
+    if conform < 0 [set conform 0]
+    if conform > 1 [set conform 1]
+    
+    set signalQuality 0.5 + random-float 0.1
+    set confidence signalQuality
+    set belief random-float 1.0
+    set vote 0
+    set hasAccess false
+    set isLeader false
+  ]
+  
+  if centralized? [
+    ask turtle 0 [
+      set isLeader true
+      set color red
+    ]
+  ]
+  
+  reset-ticks
+end
+
+to go
+  if roundCount >= rounds [ stop ]
+  run-round
+  set roundCount roundCount + 1
+  tick
+end
+
+to run-round
+  ;; Step 1: Ground truth
+  set truth random 2
+  
+  ;; Step 2: LLM recommendation
+  ifelse random-float 1.0 < A
+    [ set r truth ]
+    [ set r (1 - truth) ]
+  
+  ;; Step 3: Access assignment
+  ask turtles [
+    ifelse centralized?
+      [ set hasAccess isLeader ]
+      [ set hasAccess (random-float 1.0 < coverage) ]
+  ]
+  
+  ;; Step 4-5: Belief update
+  update-beliefs
+  
+  ;; Step 6: Collective decision
+  let group-decision 0
+  ifelse voter? [
+    let total-pro-1 (count turtles with [vote = 1]) + (ifelse-value (r = 1) [wAI] [0])
+    let total-pro-0 (count turtles with [vote = 0]) + (ifelse-value (r = 0) [wAI] [0])
+    set group-decision ifelse-value (total-pro-1 > total-pro-0) [1] [0]
+  ][
+    set group-decision ifelse-value 
+      (count turtles with [vote = 1] > count turtles with [vote = 0]) 
+      [1] [0]
+  ]
+  
+  ;; Step 7: Outcome counters
+  ifelse group-decision = truth [
+    set correctCount correctCount + 1
+  ][
+    set wrongCount wrongCount + 1
+    let agreement ifelse-value (group-decision = 1)
+      [count turtles with [vote = 1] / N]
+      [count turtles with [vote = 0] / N]
+    if agreement > 0.667 [
+      set highConsensusWrongCount highConsensusWrongCount + 1
+    ]
+  ]
+  
+  set totalBeliefVariance totalBeliefVariance + variance [belief] of turtles
+  
+  ;; Step 8: Trust update (FIXED: recompute group decision locally)
+  ask turtles with [hasAccess] [
+    ifelse r = truth
+      [ set trust trust + 0.05 ]
+      [ set trust trust - 0.10 ]
+    
+    ;; CRITICAL FIX: Recompute current group decision to avoid scope issues
+    let current-group-decision ifelse-value 
+      (count turtles with [vote = 1] > count turtles with [vote = 0]) 
+      [1] [0]
+    
+    let agent-original-preference ifelse-value (preSocialBelief >= 0.5) [1] [0]
+    if agent-original-preference != current-group-decision and r != truth [
+      set trust trust - 0.03
+    ]
+    
+    if trust < 0 [set trust 0]
+    if trust > 1 [set trust 1]
+  ]
+end
+
+to update-beliefs
+  ;; (1) Private signal + AI fusion
+  ask turtles [
+    let private-signal ifelse-value (random-float 1.0 < signalQuality) [truth] [1 - truth]
+    set belief private-signal
+    if hasAccess [
+      set belief (trust * r) + ((1 - trust) * belief)
+    ]
+    set preSocialBelief belief
+  ]
+  
+  ;; (2) Informational influence
+  let mean-group-belief mean [belief] of turtles
+  ask turtles [
+    set belief belief + (0.3 * conform * (mean-group-belief - belief))
+  ]
+  
+  ;; (3) Normative influence: leader authority (continuous belief)
+  if centralized? [
+    let leader-belief [belief] of turtle 0
+    ask turtles with [not isLeader] [
+      set belief belief + (0.4 * conform * (leader-belief - belief))
+    ]
+  ]
+  
+  ;; (4) Normative influence: AI as voter
+  if voter? [
+    ask turtles [
+      set belief belief + (0.2 * conform * (r - belief))
+    ]
+  ]
+  
+  ;; (5) Confidence filter + vote
+  ask turtles [
+    set belief (confidence * preSocialBelief) + ((1 - confidence) * belief)
+    set vote ifelse-value (belief >= 0.5) [1] [0]
+  ]
+end
+
+;; ===== REPORTERS =====
+to-report accuracy
+  if roundCount = 0 [ report 0 ]
+  report correctCount / roundCount
+end
+
+to-report cascade-rate
+  if wrongCount = 0 [ report 0 ]
+  report highConsensusWrongCount / wrongCount
+end
+
+to-report false-convergence
+  if roundCount = 0 [ report 0 ]
+  report highConsensusWrongCount / roundCount
+end
+
+to-report polarisation
+  if roundCount = 0 [ report 0 ]
+  report totalBeliefVariance / roundCount
+end
