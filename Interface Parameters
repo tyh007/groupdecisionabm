@@ -6,13 +6,13 @@ authority-regime: chooser ["no-ai" "advisor" "pure-voter" "hybrid-voter"]
 centralized?: switch
 AI-vote-share: slider (0.0 to 0.5, default 0.05, increment 0.01)
 coverage: slider (0.0 to 1.0, default 0.5, increment 0.1)
-A: slider (0.5 to 1.0, default 0.75, increment 0.05)
-N: slider (1 to 30, default 15, increment 5)
+A: slider (0.5 to 0.95, default 0.75, increment 0.05)
+N: slider (1 to 50, default 15, increment 5)
 rounds: slider (50 to 500, default 200, increment 50)
 meanTrust: slider (0.0 to 1.0, default 0.6, increment 0.1)
-sdTrust: slider (0.0 to 0.3, default 0.15, increment 0.05)
-meanConform: slider (0.0 to 1.0, default 0.5, increment 0.1)
-sdConform: slider (0.0 to 0.3, default 0.15, increment 0.05)
+sdTrust: slider (0.05 to 0.3, default 0.15, increment 0.05)
+meanConform: slider (0.0 to 1.0, default 0.35, increment 0.1)
+sdConform: slider (0.05 to 0.3, default 0.15, increment 0.05)
 
 Monitor
 
