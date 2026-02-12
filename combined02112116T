@@ -1,45 +1,88 @@
 ;; ========================================
-;; LLM-Augmented Collective Decision Model (CLEAN VERSION)
+;; LLM-Augmented Collective Decision Model (FINAL CORRECTED VERSION)
 ;; ========================================
+;; Authority Regimes:
+;;   - advisor: AI has NO voting power, influences beliefs via trust-weighted fusion
+;;   - pure-voter: AI has voting power (wAI) ONLY, does NOT influence human beliefs
+;;   - hybrid-voter: AI has voting power AND influences beliefs (informational + normative)
+;;
+;; Information Structure (applies only to advisor & hybrid-voter):
+;;   - centralized: only leader accesses AI
+;;   - distributed: coverage% of agents access AI
+;;
+;; Trust Tracking:
+;;   - trust: bounded [0,1], used in computations
+;;   - trustInstantaneous: unbounded, tracks true trajectory
+;; ========================================
+
 globals [
-  truth r correctCount wrongCount highConsensusWrongCount roundCount totalBeliefVariance
+  truth                      ;; Ground truth (0 or 1)
+  r                          ;; AI recommendation (0 or 1)
+  correctCount               ;; Number of correct group decisions
+  wrongCount                 ;; Number of wrong group decisions
+  highConsensusWrongCount    ;; Number of high-consensus wrong decisions
+  roundCount                 ;; Current round number
+  totalBeliefVariance        ;; Cumulative belief variance
 ]
 
 turtles-own [
-  preSocialBelief signalQuality trust conform confidence belief vote hasAccess isLeader
+  preSocialBelief            ;; Belief after private signal + AI, before social influence
+  signalQuality              ;; Probability of receiving correct private signal
+  trust                      ;; Trust in AI, bounded [0,1]
+  trustInstantaneous         ;; Unbounded trust trajectory
+  conform                    ;; Conformity propensity [0,1]
+  confidence                 ;; Confidence in own judgment
+  belief                     ;; Final belief after all influences
+  vote                       ;; Binary vote (0 or 1)
+  hasAccess                  ;; Whether agent has access to AI this round
+  isLeader                   ;; Whether agent is the leader
+  trustHistory               ;; List tracking trust evolution
 ]
 
+;; ========================================
+;; SETUP PROCEDURE
+;; ========================================
 to setup
   clear-all
   random-seed new-seed
   
+  ;; Initialize global counters
   set correctCount 0
   set wrongCount 0
   set highConsensusWrongCount 0
   set roundCount 0
   set totalBeliefVariance 0
   
+  ;; Create agents
   create-turtles N [
     set shape "person"
     set color blue
     setxy random-xcor random-ycor
     
+    ;; Initialize trust
     set trust random-normal meanTrust sdTrust
     if trust < 0 [set trust 0]
     if trust > 1 [set trust 1]
+    set trustInstantaneous trust
+    set trustHistory []
     
+    ;; Initialize conformity
     set conform random-normal meanConform sdConform
     if conform < 0 [set conform 0]
     if conform > 1 [set conform 1]
     
+    ;; Initialize competence and confidence
     set signalQuality 0.5 + random-float 0.1
     set confidence signalQuality
+    
+    ;; Initialize belief and vote
     set belief random-float 1.0
     set vote 0
     set hasAccess false
     set isLeader false
   ]
   
+  ;; Designate leader (turtle 0) if centralized structure
   if centralized? [
     ask turtle 0 [
       set isLeader true
@@ -50,6 +93,9 @@ to setup
   reset-ticks
 end
 
+;; ========================================
+;; MAIN LOOP
+;; ========================================
 to go
   if roundCount >= rounds [ stop ]
   run-round
@@ -57,91 +103,84 @@ to go
   tick
 end
 
+;; ========================================
+;; SINGLE ROUND PROCEDURE
+;; ========================================
 to run-round
-  ;; Step 1: Ground truth
+  ;; Step 1: Generate ground truth
   set truth random 2
   
-  ;; Step 2: LLM recommendation
+  ;; Step 2: AI generates recommendation
   ifelse random-float 1.0 < A
     [ set r truth ]
     [ set r (1 - truth) ]
   
-  ;; Step 3: Access assignment
-  ask turtles [
-    ifelse centralized?
-      [ set hasAccess isLeader ]
-      [ set hasAccess (random-float 1.0 < coverage) ]
-  ]
+  ;; Step 3: Assign AI access based on authority regime and information structure
+  assign-access
   
-  ;; Step 4-5: Belief update
+  ;; Step 4-5: Agents update beliefs
   update-beliefs
   
-  ;; Step 6: Collective decision
-  let group-decision 0
-  ifelse voter? [
-    let total-pro-1 (count turtles with [vote = 1]) + (ifelse-value (r = 1) [wAI] [0])
-    let total-pro-0 (count turtles with [vote = 0]) + (ifelse-value (r = 0) [wAI] [0])
-    set group-decision ifelse-value (total-pro-1 > total-pro-0) [1] [0]
-  ][
-    set group-decision ifelse-value 
-      (count turtles with [vote = 1] > count turtles with [vote = 0]) 
-      [1] [0]
-  ]
+  ;; Step 6: Make collective decision
+  let group-decision make-group-decision
   
-  ;; Step 7: Outcome counters
-  ifelse group-decision = truth [
-    set correctCount correctCount + 1
-  ][
-    set wrongCount wrongCount + 1
-    let agreement ifelse-value (group-decision = 1)
-      [count turtles with [vote = 1] / N]
-      [count turtles with [vote = 0] / N]
-    if agreement > 0.667 [
-      set highConsensusWrongCount highConsensusWrongCount + 1
-    ]
-  ]
+  ;; Step 7: Record outcomes
+  record-outcomes group-decision
   
-  set totalBeliefVariance totalBeliefVariance + variance [belief] of turtles
-  
-  ;; Step 8: Trust update (FIXED: recompute group decision locally)
-  ask turtles with [hasAccess] [
-    ifelse r = truth
-      [ set trust trust + 0.05 ]
-      [ set trust trust - 0.10 ]
-    
-    ;; CRITICAL FIX: Recompute current group decision to avoid scope issues
-    let current-group-decision ifelse-value 
-      (count turtles with [vote = 1] > count turtles with [vote = 0]) 
-      [1] [0]
-    
-    let agent-original-preference ifelse-value (preSocialBelief >= 0.5) [1] [0]
-    if agent-original-preference != current-group-decision and r != truth [
-      set trust trust - 0.03
+  ;; Step 8: Update trust (only for agents with access)
+  update-trust group-decision
+end
+
+;; ========================================
+;; ACCESS ASSIGNMENT
+;; ========================================
+to assign-access
+  ask turtles [
+    ;; Pure-voter: NO agent sees AI (AI only contributes vote weight)
+    if authority-regime = "pure-voter" [
+      set hasAccess false
+      stop
     ]
     
-    if trust < 0 [set trust 0]
-    if trust > 1 [set trust 1]
+    ;; Advisor or Hybrid-voter: access depends on information structure
+    if authority-regime = "advisor" or authority-regime = "hybrid-voter" [
+      ifelse centralized? [
+        ;; Centralized: only leader has access
+        set hasAccess isLeader
+      ][
+        ;; Distributed: coverage% probability
+        set hasAccess (random-float 1.0 < coverage)
+      ]
+    ]
   ]
 end
 
+;; ========================================
+;; BELIEF UPDATE
+;; ========================================
 to update-beliefs
-  ;; (1) Private signal + AI fusion
+  ;; (1) Private signal + AI fusion (NOT for pure-voter)
   ask turtles [
+    ;; Generate private signal
     let private-signal ifelse-value (random-float 1.0 < signalQuality) [truth] [1 - truth]
     set belief private-signal
-    if hasAccess [
+    
+    ;; Fuse with AI recommendation if has access (NOT for pure-voter)
+    if hasAccess and authority-regime != "pure-voter" [
       set belief (trust * r) + ((1 - trust) * belief)
     ]
+    
+    ;; Store pre-social belief
     set preSocialBelief belief
   ]
   
-  ;; (2) Informational influence
+  ;; (2) Informational influence: peer averaging
   let mean-group-belief mean [belief] of turtles
   ask turtles [
     set belief belief + (0.3 * conform * (mean-group-belief - belief))
   ]
   
-  ;; (3) Normative influence: leader authority (continuous belief)
+  ;; (3) Normative influence: leader authority
   if centralized? [
     let leader-belief [belief] of turtle 0
     ask turtles with [not isLeader] [
@@ -149,21 +188,109 @@ to update-beliefs
     ]
   ]
   
-  ;; (4) Normative influence: AI as voter
-  if voter? [
+  ;; (4) Normative influence: AI as voter (ONLY for hybrid-voter)
+  if authority-regime = "hybrid-voter" [
     ask turtles [
       set belief belief + (0.2 * conform * (r - belief))
     ]
   ]
   
-  ;; (5) Confidence filter + vote
+  ;; (5) Confidence filter + convert to binary vote
   ask turtles [
     set belief (confidence * preSocialBelief) + ((1 - confidence) * belief)
     set vote ifelse-value (belief >= 0.5) [1] [0]
   ]
 end
 
-;; ===== REPORTERS =====
+;; ========================================
+;; COLLECTIVE DECISION
+;; ========================================
+to-report make-group-decision
+  ;; Advisor: AI has NO voting power
+  if authority-regime = "advisor" [
+    report ifelse-value 
+      (count turtles with [vote = 1] > count turtles with [vote = 0])
+      [1] [0]
+  ]
+  
+  ;; Pure-voter and Hybrid-voter: AI contributes vote weight wAI
+  if authority-regime = "pure-voter" or authority-regime = "hybrid-voter" [
+    let total-pro-1 (count turtles with [vote = 1]) + (ifelse-value (r = 1) [wAI] [0])
+    let total-pro-0 (count turtles with [vote = 0]) + (ifelse-value (r = 0) [wAI] [0])
+    report ifelse-value (total-pro-1 > total-pro-0) [1] [0]
+  ]
+  
+  ;; Fallback (should never reach here)
+  report 0
+end
+
+;; ========================================
+;; RECORD OUTCOMES
+;; ========================================
+to record-outcomes [group-decision]
+  ;; Check if decision is correct
+  ifelse group-decision = truth [
+    set correctCount correctCount + 1
+  ][
+    set wrongCount wrongCount + 1
+    
+    ;; Check for high-consensus wrong decision (cascade)
+    let agreement ifelse-value (group-decision = 1)
+      [count turtles with [vote = 1] / N]
+      [count turtles with [vote = 0] / N]
+    
+    if agreement > 0.667 [
+      set highConsensusWrongCount highConsensusWrongCount + 1
+    ]
+  ]
+  
+  ;; Track belief variance (polarization measure)
+  set totalBeliefVariance totalBeliefVariance + variance [belief] of turtles
+end
+
+;; ========================================
+;; TRUST UPDATE
+;; ========================================
+to update-trust [group-decision]
+  ask turtles with [hasAccess] [
+    ;; Save pre-update trust for history
+    let trust-before trustInstantaneous
+    
+    ;; Accumulate all trust adjustments FIRST (before capping)
+    let trust-delta 0
+    
+    ;; Adjustment 1: AI correctness feedback
+    ifelse r = truth
+      [ set trust-delta trust-delta + 0.05 ]
+      [ set trust-delta trust-delta - 0.10 ]
+    
+    ;; Adjustment 2: Outvoted penalty (if agent's original preference lost AND AI was wrong)
+    let human-only-decision ifelse-value 
+      (count turtles with [vote = 1] > count turtles with [vote = 0])
+      [1] [0]
+    
+    let agent-original-preference ifelse-value (preSocialBelief >= 0.5) [1] [0]
+    
+    if agent-original-preference != human-only-decision and r != truth [
+      set trust-delta trust-delta - 0.03
+    ]
+    
+    ;; Apply total delta to instantaneous trust (UNBOUNDED)
+    set trustInstantaneous trustInstantaneous + trust-delta
+    
+    ;; Apply bounded trust for next round
+    set trust trustInstantaneous
+    if trust < 0 [set trust 0]
+    if trust > 1 [set trust 1]
+    
+    ;; Record trust trajectory: [round, trust-before-bounded, trust-after-bounded, instantaneous]
+    set trustHistory lput (list roundCount trust-before trust trustInstantaneous) trustHistory
+  ]
+end
+
+;; ========================================
+;; REPORTERS
+;; ========================================
 to-report accuracy
   if roundCount = 0 [ report 0 ]
   report correctCount / roundCount
@@ -182,4 +309,31 @@ end
 to-report polarisation
   if roundCount = 0 [ report 0 ]
   report totalBeliefVariance / roundCount
+end
+
+to-report mean-trust
+  report mean [trust] of turtles
+end
+
+to-report mean-trust-instantaneous
+  report mean [trustInstantaneous] of turtles
+end
+
+to-report trust-drift
+  ;; Average absolute deviation between bounded and instantaneous trust
+  report mean [abs (trustInstantaneous - trust)] of turtles
+end
+
+to-report access-rate
+  ;; Proportion of agents with AI access this round
+  report count turtles with [hasAccess] / N
+end
+
+to-report mean-conformity
+  report mean [conform] of turtles
+end
+
+to-report vote-distribution
+  ;; Reports: [votes-for-0, votes-for-1]
+  report (list (count turtles with [vote = 0]) (count turtles with [vote = 1]))
 end
