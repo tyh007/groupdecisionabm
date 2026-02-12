@@ -1,144 +1,31 @@
-界面参数配置 (Interface Parameters)
-主要参数 (Sliders/Choosers/Switches)
+Interface
+
+Sliders/Choosers
 
 authority-regime: chooser ["no-ai" "advisor" "pure-voter" "hybrid-voter"]
-centralized?: switch (on/off)
+centralized?: switch
+AI-vote-share: slider (0.0 to 0.5, default 0.05, increment 0.01)
 coverage: slider (0.0 to 1.0, default 0.5, increment 0.1)
-wAI: slider (0 to 10, default 1, increment 0.5)
 A: slider (0.5 to 1.0, default 0.75, increment 0.05)
-N: slider (10 to 100, default 30, increment 5)
-rounds: slider (10 to 500, default 100, increment 10)
+N: slider (1 to 30, default 15, increment 5)
+rounds: slider (50 to 500, default 200, increment 50)
 meanTrust: slider (0.0 to 1.0, default 0.6, increment 0.1)
-sdTrust: slider (0.0 to 0.5, default 0.15, increment 0.05)
+sdTrust: slider (0.0 to 0.3, default 0.15, increment 0.05)
 meanConform: slider (0.0 to 1.0, default 0.5, increment 0.1)
-sdConform: slider (0.0 to 0.5, default 0.15, increment 0.05)
+sdConform: slider (0.0 to 0.3, default 0.15, increment 0.05)
 
-监视器 (Monitors)
-Primary Outcomes
- 
+Monitor
+
+regime-summary
 accuracy
-cascade-rate
 false-convergence
+cascade-rate
 polarisation
-Secondary Outcomes
- 
 confidence-calibration
 influence-inequality
 conflict-burden
-Trust Metrics
- 
+ai-decisive-rate
 mean-trust
 trust-miscalibration
 trust-bias
-trust-drift
-Descriptive Stats
- 
-regime-summary
 access-rate
-outvoted-count
-ai-vote-impact
-图表 (Plots)
-Plot 1: Performance Over Time
- 
-Plot name: "Accuracy & False Convergence"
-X axis: ticks
-Pens:
-  - "accuracy" (color: green)
-  - "false-convergence" (color: red)
-Plot 2: Trust Dynamics
- 
-Plot name: "Trust Evolution"
-X axis: ticks
-Pens:
-  - "mean-trust" (color: blue)
-  - "AI-accuracy" (color: gray, constant at A)
-  - "trust-instantaneous" (color: orange)
-Plot 3: Social Dynamics
- 
-Plot name: "Polarization & Conflict"
-X axis: ticks
-Pens:
-  - "polarisation" (color: purple)
-  - "conflict-burden" (color: brown)
-📊 BehaviorSpace 实验设计
-实验1: 基础对比 (H1, H2, H3)
-xml
-<experiment name="authority-info-structure" repetitions="50" runMetricsEveryStep="false">
-  <setup>setup</setup>
-  <go>go</go>
-  <timeLimit steps="200"/>
-  
-  <enumeratedValueSet variable="authority-regime">
-    <value value="&quot;no-ai&quot;"/>
-    <value value="&quot;advisor&quot;"/>
-    <value value="&quot;pure-voter&quot;"/>
-    <value value="&quot;hybrid-voter&quot;"/>
-  </enumeratedValueSet>
-  
-  <enumeratedValueSet variable="centralized?">
-    <value value="false"/>
-    <value value="true"/>
-  </enumeratedValueSet>
-  
-  <steppedValueSet variable="A" first="0.6" step="0.1" last="0.9"/>
-  <steppedValueSet variable="wAI" first="0.5" step="0.5" last="2"/>
-  
-  <enumeratedValueSet variable="coverage">
-    <value value="0.3"/>
-    <value value="0.8"/>
-  </enumeratedValueSet>
-  
-  <metrics>accuracy cascade-rate false-convergence polarisation 
-           confidence-calibration influence-inequality conflict-burden
-           trust-miscalibration trust-bias trust-drift</metrics>
-</experiment>
-实验2: wAI Threshold 测试 (H4)
-xml
-<experiment name="wAI-threshold" repetitions="100" runMetricsEveryStep="true">
-  <setup>setup</setup>
-  <go>go</go>
-  <timeLimit steps="300"/>
-  
-  <enumeratedValueSet variable="authority-regime">
-    <value value="&quot;pure-voter&quot;"/>
-    <value value="&quot;hybrid-voter&quot;"/>
-  </enumeratedValueSet>
-  
-  <steppedValueSet variable="wAI" first="0" step="0.25" last="5"/>
-  
-  <enumeratedValueSet variable="A">
-    <value value="0.7"/>
-  </enumeratedValueSet>
-  
-  <metrics>accuracy false-convergence polarisation ai-vote-impact</metrics>
-</experiment>
-实验3: Trust Miscalibration (H5)
-xml
-<experiment name="trust-calibration" repetitions="50" runMetricsEveryStep="false">
-  <setup>setup</setup>
-  <go>go</go>
-  <timeLimit steps="500"/>
-  
-  <enumeratedValueSet variable="authority-regime">
-    <value value="&quot;advisor&quot;"/>
-    <value value="&quot;hybrid-voter&quot;"/>
-  </enumeratedValueSet>
-  
-  <!-- Over-trust scenario -->
-  <enumeratedValueSet variable="meanTrust">
-    <value value="0.85"/>
-  </enumeratedValueSet>
-  <enumeratedValueSet variable="A">
-    <value value="0.65"/>
-  </enumeratedValueSet>
-  
-  <!-- Under-trust scenario -->
-  <enumeratedValueSet variable="meanTrust">
-    <value value="0.5"/>
-  </enumeratedValueSet>
-  <enumeratedValueSet variable="A">
-    <value value="0.85"/>
-  </enumeratedValueSet>
-  
-  <metrics>accuracy trust-bias trust-drift cascade-rate</metrics>
-</experiment>
