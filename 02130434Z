@@ -1,0 +1,59 @@
+✅ loaded rows: 1113600
+experiment                authority_regime  info_structure
+Exp1-NoAI                 no-ai             distributed          600
+Exp2-Advisor-Distributed  advisor           distributed       147000
+Exp3-Advisor-Centralised  advisor           centralised        21000
+Exp4-Hybrid-Distributed   hybrid-voter      distributed       735000
+Exp5-Hybrid-Centralised   hybrid-voter      centralised       105000
+Exp6-Pure-Voter           pure-voter        none              105000
+dtype: int64
+
+/Users/apple/Library/CloudStorage/OneDrive-UniversityCollegeLondon/anaconda3/lib/python3.13/site-packages/statsmodels/base/model.py:1894: ValueWarning: covariance of constraints does not have full rank. The number of constraints is 10, but rank is 1
+  warnings.warn('covariance of constraints does not have full '
+/Users/apple/Library/CloudStorage/OneDrive-UniversityCollegeLondon/anaconda3/lib/python3.13/site-packages/statsmodels/base/model.py:1894: ValueWarning: covariance of constraints does not have full rank. The number of constraints is 12, but rank is 1
+  warnings.warn('covariance of constraints does not have full '
+=== H1 ===
+ H       regime      n  coef_centralised_flag  p_centralised_flag                interpretation
+H1      advisor 168000              -0.026467       2.187506e-100 coef > 0 支持H1；coef <= 0 不支持H1
+H1 hybrid-voter 840000              -0.021894       4.259256e-278 coef > 0 支持H1；coef <= 0 不支持H1
+
+=== H2 ===
+  H       regime      n  coef_centralised_flag  p_centralised_flag                                                     interpretation  coef_interaction  p_interaction  diff_centralised_minus_distributed_at_conform_0.2  diff_centralised_minus_distributed_at_conform_0.6
+H2a      advisor 168000              -0.000697        6.423692e-04                           coef < 0 表示 distributed 成本更高，符合H2a；否则不符合               NaN            NaN                                                NaN                                                NaN
+H2b      advisor 168000                    NaN                 NaN 若 low 时 diff>0(centralised更好)则不符；若 low 时 diff<0 且 high 时趋零/反转更符H2b         -0.003427       0.242658                                           0.013421                                           0.012050
+H2a hybrid-voter 840000              -0.000783        1.003602e-14                           coef < 0 表示 distributed 成本更高，符合H2a；否则不符合               NaN            NaN                                                NaN                                                NaN
+H2b hybrid-voter 840000                    NaN                 NaN 若 low 时 diff>0(centralised更好)则不符；若 low 时 diff<0 且 high 时趋零/反转更符H2b         -0.000956       0.417203                                           0.015636                                           0.015254
+
+=== H3 ===
+ H      n  coef_hybrid_flag  p_hybrid_flag  coef_hybrid_x_conform  p_hybrid_x_conform                                   interpretation
+H3 945000      7.480528e+07            0.0               0.000752                 0.0 若 hybrid 或交互项 >0 且显著，说明除 mechanical 外存在权威通道，支持H3
+
+=== H4 (head) ===
+      label           outcome  share_from  share_to  n_cells  mean_diff          t             p                               note
+  voter_all          accuracy         0.1       0.2     4900  -0.010631 -21.825408 7.402087e-101 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+  voter_all          accuracy         0.2       0.3     4900  -0.015702 -42.270807  0.000000e+00 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+  voter_all          accuracy         0.3       0.4     4900  -0.009907 -40.630674  0.000000e+00 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+  voter_all          accuracy         0.4       0.5     4900  -0.001433 -12.562983  1.189743e-35 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+hybrid_only          accuracy         0.1       0.2     4900  -0.010631 -21.825408 7.402087e-101 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+hybrid_only          accuracy         0.2       0.3     4900  -0.015702 -42.270807  0.000000e+00 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+hybrid_only          accuracy         0.3       0.4     4900  -0.009907 -40.630674  0.000000e+00 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+hybrid_only          accuracy         0.4       0.5     4900  -0.001433 -12.562983  1.189743e-35 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+  voter_all      cascade_rate         0.1       0.2     4900  -0.006122  -7.616109  3.118094e-14 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+  voter_all      cascade_rate         0.2       0.3     4900  -0.007187 -13.706312  5.491476e-42 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+  voter_all      cascade_rate         0.3       0.4     4900  -0.027017 -29.351882 1.360917e-174 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+  voter_all      cascade_rate         0.4       0.5     4900  -0.001958  -3.483894  4.984993e-04 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+hybrid_only      cascade_rate         0.1       0.2     4900  -0.006122  -7.616109  3.118094e-14 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+hybrid_only      cascade_rate         0.2       0.3     4900  -0.007187 -13.706312  5.491476e-42 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+hybrid_only      cascade_rate         0.3       0.4     4900  -0.027017 -29.351882 1.360917e-174 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+hybrid_only      cascade_rate         0.4       0.5     4900  -0.001958  -3.483894  4.984993e-04 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+  voter_all false_convergence         0.1       0.2     4900  -0.002724 -16.772703  1.944861e-61 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+  voter_all false_convergence         0.2       0.3     4900  -0.000812  -5.300770  1.203764e-07 若某步 mean_diff 幅度最大且显著，可视作跳跃证据，支持H4
+
+=== H5 ===
+ H       n  coef_acc_trust_drift  p_acc_trust_drift  coef_acc_trust_miscal  p_acc_trust_miscal  coef_cas_trust_drift  p_cas_trust_drift  coef_cas_trust_miscal  p_cas_trust_miscal                                 interpretation
+H5 1113000              0.005329                0.0              -0.028415                 0.0              0.007132      4.553283e-265              -0.618124                 0.0 accuracy 回归里系数为负且显著/或 cascade 回归里为正且显著 -> 支持H5
+
+✅ 输出已写入 results/（含各回归摘要 TXT）
+/Users/apple/Library/CloudStorage/OneDrive-UniversityCollegeLondon/anaconda3/lib/python3.13/site-packages/statsmodels/base/model.py:1894: ValueWarning: covariance of constraints does not have full rank. The number of constraints is 12, but rank is 1
+  warnings.warn('covariance of constraints does not have full '
+.
